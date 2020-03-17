@@ -17,6 +17,122 @@
             </ul>
         </div>
     </div>
+    <script src="https://js.pusher.com/4.1/pusher.min.js"></script>
+    <script>
+        var pusher = new Pusher("XXX-API-KEY", {
+            cluster: "XXX-API-CLUSTER",
+            encrypted: true,
+            authEndpoint: "pusher/auth"
+        });
+        var usersOnline,
+            id,
+            users = [],
+            sessionDesc,
+            currentcaller,
+            room,
+            caller,
+            localUserMedia;
+        const channel = pusher.subscribe("presence-videocall");
+
+        channel.bind("pusher:subscription_succeeded", members => {
+            //set the member count
+            usersOnline = members.count;
+            id = channel.members.me.id;
+            document.getElementById("myid").innerHTML = ` My caller id is : ` + id;
+            members.each(member => {
+                if (member.id != channel.members.me.id) {
+                    users.push(member.id);
+                }
+            });
+
+            render();
+        });
+
+        channel.bind("pusher:member_added", member => {
+            users.push(member.id);
+            render();
+        });
+
+        channel.bind("pusher:member_removed", member => {
+            // for remove member from list:
+            var index = users.indexOf(member.id);
+            users.splice(index, 1);
+            if (member.id == room) {
+                endCall();
+            }
+            render();
+        });
+
+        function render() {
+            var list = "";
+            users.forEach(function(user) {
+                list +=
+                    `<li>` +
+                    user +
+                    ` <input type="button" style="float:right;"  value="Call" onclick="callUser('` +
+                    user +
+                    `')" id="makeCall" /></li>`;
+            });
+            document.getElementById("users").innerHTML = list;
+        }
+
+        //To iron over browser implementation anomalies like prefixes
+        GetRTCPeerConnection();
+        GetRTCSessionDescription();
+        GetRTCIceCandidate();
+        //prepare the caller to use peerconnection
+        prepareCaller();
+
+        function GetRTCIceCandidate() {
+            window.RTCIceCandidate =
+                window.RTCIceCandidate ||
+                window.webkitRTCIceCandidate ||
+                window.mozRTCIceCandidate ||
+                window.msRTCIceCandidate;
+
+            return window.RTCIceCandidate;
+        }
+
+        function GetRTCPeerConnection() {
+            window.RTCPeerConnection =
+                window.RTCPeerConnection ||
+                window.webkitRTCPeerConnection ||
+                window.mozRTCPeerConnection ||
+                window.msRTCPeerConnection;
+            return window.RTCPeerConnection;
+        }
+
+        function GetRTCSessionDescription() {
+            window.RTCSessionDescription =
+                window.RTCSessionDescription ||
+                window.webkitRTCSessionDescription ||
+                window.mozRTCSessionDescription ||
+                window.msRTCSessionDescription;
+            return window.RTCSessionDescription;
+        }
+
+        function prepareCaller() {
+            //Initializing a peer connection
+            caller = new window.RTCPeerConnection();
+            //Listen for ICE Candidates and send them to remote peers
+            caller.onicecandidate = function(evt) {
+                if (!evt.candidate) return;
+                console.log("onicecandidate called");
+                onIceCandidate(caller, evt);
+            };
+            //onaddstream handler to receive remote feed and show in remoteview video element
+            caller.onaddstream = function(evt) {
+                console.log("onaddstream called");
+                if (window.URL) {
+                    document.getElementById("remoteview").src = window.URL.createObjectURL(
+                        evt.stream
+                    );
+                } else {
+                    document.getElementById("remoteview").src = evt.stream;
+                }
+            };
+        }
+    </script>
 </body>
 
 </html>
